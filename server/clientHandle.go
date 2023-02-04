@@ -2,13 +2,14 @@ package server
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"net"
 	"net-cat/helpers"
 	"time"
 )
 
+// TODO validations of name and messages
+// History
 func (ServerChat *Chat) ProcessMessages() {
 	var newMessage Message
 
@@ -16,8 +17,9 @@ func (ServerChat *Chat) ProcessMessages() {
 		newMessage = <-ServerChat.channel
 		for _, client := range ServerChat.clients {
 			if newMessage.user != client {
+				fmt.Fprintf(client.conn, "\n")
 				fmt.Fprint(client.conn, newMessage.msg)
-				fmt.Printf("\n")
+				fmt.Fprint(client.conn, fmt.Sprintf("["+time.Now().Format("2006-01-02 15:04:05")+"][%s]:", client.name))
 			}
 		}
 	}
@@ -36,34 +38,14 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 	newClient := ServerChat.newClientAdd(conn, name)
 
 	var newMessage Message
+
 	for scanner.Scan() {
 		newMessage.user = newClient
 		newMessage.msg = scanner.Text()
+		fmt.Fprint(conn, fmt.Sprintf("["+time.Now().Format("2006-01-02 15:04:05")+"][%s]:", name))
 		ServerChat.channel <- FormatTextMessage(newMessage)
 	}
-	// start messages
-	// propmt the name
-	// upload history
-	// add to chat.Clients
-	// wait and get the messages
-}
-
-func (ServerChat *Chat) NameValidator(name string) error {
-	errEnd := " try again: "
-	if len(name) > 20 {
-		return errors.New("length of name must contain max 20 letters." + errEnd)
-	}
-	for _, v := range name {
-		if !((v >= 'A' && v <= 'Z') || (v >= 'a' && v <= 'z')) {
-			return errors.New("name has not-valid characters. allowed[a-zA-Z]." + errEnd)
-		}
-	}
-	for _, v := range ServerChat.clients {
-		if v.name == name {
-			return errors.New("name you entered already exists." + errEnd)
-		}
-	}
-	return nil
+	ServerChat.channel <- Message{newClient, fmt.Sprintf("%s has left our chat...\n", newClient.name)}
 }
 
 func (ServerChat *Chat) newClientAdd(conn net.Conn, name string) Client {
@@ -76,7 +58,7 @@ func (ServerChat *Chat) newClientAdd(conn net.Conn, name string) Client {
 	newMessage.user = newClient
 	newMessage.msg = fmt.Sprintf("%s has joined our chat...\n", newClient.name)
 	ServerChat.channel <- newMessage
-
+	fmt.Fprint(conn, fmt.Sprintf("["+time.Now().Format("2006-01-02 15:04:05")+"][%s]:", name))
 	return newClient
 }
 
