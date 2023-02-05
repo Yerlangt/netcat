@@ -24,7 +24,6 @@ type Message struct {
 	msg  string
 }
 
-// TODO validations of name
 // History
 func (ServerChat *Chat) ProcessMessages() {
 	var newMessage Message
@@ -49,7 +48,14 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 	var name string
 	for scanner.Scan() {
 		name = scanner.Text()
-		break
+		ok, err := ServerChat.AddNameValidate(name)
+		if !(ok) {
+			fmt.Fprint(conn, err)
+			fmt.Fprint(conn, "[ENTER YOUR NAME]:")
+		} else {
+			break
+		}
+
 	}
 	newClient := ServerChat.newClientAdd(conn, name)
 
@@ -66,6 +72,18 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 	}
 	ServerChat.channel <- Message{newClient, GetClientDeleteMessage(newClient)}
 	ServerChat.DeleteClient(newClient)
+}
+
+func (ServerChat *Chat) AddNameValidate(name string) (bool, string) {
+	if len(name) < 3 {
+		return false, "Your name should consist at least 3 symbol. Try again\n"
+	}
+	for _, v := range ServerChat.clients {
+		if v.name == name {
+			return false, "This name is already exits. Try another\n"
+		}
+	}
+	return true, ""
 }
 
 func (ServerChat *Chat) newClientAdd(conn net.Conn, name string) Client {
