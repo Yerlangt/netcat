@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"net"
 	"os"
 )
 
@@ -18,7 +19,7 @@ func CheckArgs(args []string) string {
 	return serverPort
 }
 
-func StarterMessage() string {
+func PrintStarterMessage(conn net.Conn) {
 	msg := "Welcome to TCP-Chat!\n"
 	msg += "         _nnnn_\n"
 	msg += "	dGGGGMMb\n"
@@ -37,5 +38,5 @@ func StarterMessage() string {
 	msg += "\\____   )MMMMMP|   .'\n"
 	msg += "     `-'       `--'\n"
 	msg += "[ENTER YOUR NAME]:"
-	return msg
+	fmt.Fprint(conn, msg)
 }

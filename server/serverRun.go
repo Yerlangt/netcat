@@ -6,22 +6,6 @@ import (
 	"net"
 )
 
-type Chat struct {
-	clients []Client
-	channel chan Message
-	history []Message
-}
-
-type Client struct {
-	name string
-	conn net.Conn
-}
-
-type Message struct {
-	user Client
-	msg  string
-}
-
 func StartServer(serverPort string) {
 	listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%s", serverPort))
 	if err != nil {
