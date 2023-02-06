@@ -32,9 +32,9 @@ func (ServerChat *Chat) ProcessMessages() {
 		newMessage = <-ServerChat.channel
 		for _, client := range ServerChat.clients {
 			if newMessage.user != client {
-				fmt.Fprintf(client.conn, "\n")
-				fmt.Fprint(client.conn, newMessage.msg)
-				fmt.Fprint(client.conn, fmt.Sprintf("["+time.Now().Format("2006-01-02 15:04:05")+"][%s]:", client.name))
+				fmt.Fprint(client.conn, "\n"+newMessage.msg)
+				ServerChat.history = append(ServerChat.history, Message{client, ("\n" + newMessage.msg)})
+				ServerChat.PrintBaseMessage(client)
 			}
 		}
 	}
@@ -57,6 +57,9 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 		}
 
 	}
+
+	ServerChat.restoreHistory(conn)
+
 	newClient := ServerChat.newClientAdd(conn, name)
 
 	var newMessage Message
@@ -64,13 +67,17 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 		newMessage.user = newClient
 		newMessage.msg = scanner.Text()
 		if len(newMessage.msg) == 0 {
-			PrintBaseMessage(newClient)
+			ServerChat.PrintBaseMessage(newClient)
 			continue
 		}
-		PrintBaseMessage(newClient)
+		ServerChat.PrintBaseMessage(newClient)
+		ServerChat.history = append(ServerChat.history, Message{newClient, GetRegularTextMessage(newMessage)})
 		ServerChat.channel <- Message{newClient, GetRegularTextMessage(newMessage)}
 	}
+
+	ServerChat.history = append(ServerChat.history, Message{newClient, GetClientDeleteMessage(newClient)})
 	ServerChat.channel <- Message{newClient, GetClientDeleteMessage(newClient)}
+
 	ServerChat.DeleteClient(newClient)
 }
 
@@ -93,8 +100,10 @@ func (ServerChat *Chat) newClientAdd(conn net.Conn, name string) Client {
 
 	ServerChat.clients = append(ServerChat.clients, newClient)
 
+	ServerChat.history = append(ServerChat.history, Message{newClient, GetClientAddMessage(newClient)})
 	ServerChat.channel <- Message{newClient, GetClientAddMessage(newClient)}
-	PrintBaseMessage(newClient)
+
+	ServerChat.PrintBaseMessage(newClient)
 
 	return newClient
 }
@@ -111,7 +120,7 @@ func GetRegularTextMessage(msg Message) string {
 	return fmt.Sprintf("["+time.Now().Format("2006-01-02 15:04:05")+"][%s]: %s\n", msg.user.name, msg.msg)
 }
 
-func PrintBaseMessage(client Client) {
+func (ServerChat *Chat) PrintBaseMessage(client Client) {
 	fmt.Fprint(client.conn, fmt.Sprintf("["+time.Now().Format("2006-01-02 15:04:05")+"][%s]:", client.name))
 }
 
@@ -121,4 +130,12 @@ func GetClientAddMessage(client Client) string {
 
 func GetClientDeleteMessage(client Client) string {
 	return fmt.Sprintf("%s has left our chat...\n", client.name)
+}
+
+func (ServerChat *Chat) restoreHistory(conn net.Conn) {
+	history := ServerChat.history
+
+	for _, v := range history {
+		fmt.Fprint(conn, v.msg)
+	}
 }
