@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net-cat/helpers"
+	"sync"
 	"time"
 )
 
@@ -12,6 +13,7 @@ type Chat struct {
 	clients []Client
 	channel chan Message
 	history []Message
+	mutex   sync.Mutex
 }
 
 type Client struct {
@@ -24,12 +26,12 @@ type Message struct {
 	msg  string
 }
 
-// History
 func (ServerChat *Chat) ProcessMessages() {
 	var newMessage Message
 
 	for {
 		newMessage = <-ServerChat.channel
+		ServerChat.mutex.Lock()
 		for _, client := range ServerChat.clients {
 			if newMessage.user != client {
 				fmt.Fprint(client.conn, "\n"+newMessage.msg)
@@ -37,6 +39,7 @@ func (ServerChat *Chat) ProcessMessages() {
 				ServerChat.PrintBaseMessage(client)
 			}
 		}
+		ServerChat.mutex.Unlock()
 	}
 }
 
@@ -57,8 +60,9 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 		}
 
 	}
-
+	ServerChat.mutex.Lock()
 	ServerChat.restoreHistory(conn)
+	ServerChat.mutex.Unlock()
 
 	newClient := ServerChat.newClientAdd(conn, name)
 
@@ -71,11 +75,18 @@ func (ServerChat *Chat) ProcessClient(conn net.Conn) {
 			continue
 		}
 		ServerChat.PrintBaseMessage(newClient)
+
+		ServerChat.mutex.Lock()
 		ServerChat.history = append(ServerChat.history, Message{newClient, GetRegularTextMessage(newMessage)})
+		ServerChat.mutex.Unlock()
+
 		ServerChat.channel <- Message{newClient, GetRegularTextMessage(newMessage)}
 	}
 
+	ServerChat.mutex.Lock()
 	ServerChat.history = append(ServerChat.history, Message{newClient, GetClientDeleteMessage(newClient)})
+	ServerChat.mutex.Unlock()
+
 	ServerChat.channel <- Message{newClient, GetClientDeleteMessage(newClient)}
 
 	ServerChat.DeleteClient(newClient)
@@ -98,9 +109,11 @@ func (ServerChat *Chat) newClientAdd(conn net.Conn, name string) Client {
 	newClient.conn = conn
 	newClient.name = name
 
+	ServerChat.mutex.Lock()
 	ServerChat.clients = append(ServerChat.clients, newClient)
-
 	ServerChat.history = append(ServerChat.history, Message{newClient, GetClientAddMessage(newClient)})
+	ServerChat.mutex.Unlock()
+
 	ServerChat.channel <- Message{newClient, GetClientAddMessage(newClient)}
 
 	ServerChat.PrintBaseMessage(newClient)
@@ -109,11 +122,13 @@ func (ServerChat *Chat) newClientAdd(conn net.Conn, name string) Client {
 }
 
 func (ServerChat *Chat) DeleteClient(client Client) {
+	ServerChat.mutex.Lock()
 	for i, v := range ServerChat.clients {
 		if v == client {
 			ServerChat.clients = append(ServerChat.clients[:i], ServerChat.clients[i+1:]...)
 		}
 	}
+	ServerChat.mutex.Unlock()
 }
 
 func GetRegularTextMessage(msg Message) string {

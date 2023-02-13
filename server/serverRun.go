@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"sync"
 )
 
 func StartServer(serverPort string) {
@@ -13,7 +14,7 @@ func StartServer(serverPort string) {
 	}
 	log.Printf("Listening on the port :%s", serverPort)
 
-	ServerChat := Chat{[]Client{}, make(chan Message), []Message{}}
+	ServerChat := Chat{[]Client{}, make(chan Message), []Message{}, sync.Mutex{}}
 
 	defer listener.Close()
 	go ServerChat.ProcessMessages()
