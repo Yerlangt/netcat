@@ -43,16 +43,3 @@ For global connection (other computers in the same network) please follow next s
    - nc [host fot global] 27960
 ```
 
-
-### Additional properties
-
-```
-There is possibility to change user's name with command (should be asked as message by user). Name will be changed if it is unique, and fits properties for nickname. Should be entered without spaces:
-    --CN:[new nickname]
-
-There is possibility to check the status of the chat - total number of users in the chat at the moment (should be asked as message by user):
-    !StatusCheck
-
-To create a binary file use makefile, in terminal box:
-    make build
-```
